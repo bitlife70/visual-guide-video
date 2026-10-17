@@ -626,6 +626,8 @@ class _Emitter:
     def draw(self, cv, view, t, ts):
         if t < self.t0 or t > self.t1 + self.life.max():
             return
+        if self.opt.get("clip") and t > self.t1:  # 컷 편집(쇼츠): 장면이 바뀌면 함께 사라진다
+            return
         if self.at == "screen":
             bx = by = 0.0
         elif isinstance(self.at, str):

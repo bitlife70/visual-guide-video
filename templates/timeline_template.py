@@ -140,6 +140,8 @@ IMPACTS = []
 # GLOWS = [(t0, t1, "@sun", dict(radius=230, color=(255, 150, 80), strength=0.55, flare=True))]   빛 번짐 + 렌즈 플레어
 # INK = [(t, dict(dur=1.7, at=(x, y) | "center"))]       먹물 번짐 전환 (t 에 화면이 가장 많이 덮인다)
 # LETTERBOX = dict(ratio=2.39, range=(t0, t1))           시네마 레터박스
+# 세로 쇼츠: CANVAS = (1080, 1920); OUTPUT_SIZE = (1080, 1920); BACKDROP = dict(kind="blur", tint=(240, 233, 216), amount=0.5)
+#          SPEED_RAMP = 0.06 (배속 구간을 이어 붙일 때)   TYPE 의 "slam" (큰 단어 '쾅', 먹물 위)   PARTICLES 옵션 clip=True
 
 # ---------------------------------------------------------------- 커스텀 훅 (지시받은 새 효과는 여기에 함수로)
 # def my_layer(ctx): ...      ctx.t ctx.ts ctx.raw ctx.frame ctx.view ctx.cv ctx.tl ctx.gfx ctx.fx ctx.screen("@x") ctx.window(t0, t1)

@@ -85,14 +85,34 @@ class View:
 
 
 def letterbox(frame):
-    """원본 프레임을 1920x1080 캔버스로."""
+    """원본 프레임을 디자인 캔버스로. 여백은 BACKDROP: 검정 / 흐리게 확대한 같은 프레임(세로 쇼츠) / 단색."""
     h, w = frame.shape[:2]
     if (w, h) == (W, H):
         return frame
     s = TL.scale
     nw, nh = int(round(w * s)), int(round(h * s))
     r = cv2.resize(frame, (nw, nh), interpolation=cv2.INTER_AREA if s < 1 else cv2.INTER_CUBIC)
-    out = np.zeros((H, W, 3), np.uint8)
+    bd = TL.backdrop
+    tint = None
+    if isinstance(bd, dict):  # dict(kind="blur", tint=(r, g, b), amount=0.45)
+        tint, amt, bd = bd.get("tint"), bd.get("amount", 0.45), bd.get("kind", "blur")
+    if bd == "blur":
+        k = max(W / w, H / h)
+        small = cv2.resize(frame, (max(1, int(w * k / 8)), max(1, int(h * k / 8))), interpolation=cv2.INTER_AREA)
+        small = cv2.GaussianBlur(small, (0, 0), 6)
+        big = cv2.resize(small, (int(w * k), int(h * k)), interpolation=cv2.INTER_LINEAR)
+        bx, by = (big.shape[1] - W) // 2, (big.shape[0] - H) // 2
+        out = big[by:by + H, bx:bx + W].astype(np.float32)
+        if tint is not None:
+            out = out * (1 - amt) + np.array(tint[::-1], np.float32) * amt
+        else:
+            out = out * 0.82 + 255 * 0.08
+        out = out.astype(np.uint8)
+    elif isinstance(bd, (tuple, list)):
+        out = np.empty((H, W, 3), np.uint8)
+        out[:] = bd[::-1]
+    else:
+        out = np.zeros((H, W, 3), np.uint8)
     ox, oy = (W - nw) // 2, (H - nh) // 2
     out[oy:oy + nh, ox:ox + nw] = r
     return out
@@ -541,7 +561,7 @@ def _custom(fns, ctx, img):
 
 
 def render_frame(frame, t):
-    """frame: 원본 프레임(BGR), t: 출력 시각 → 1920x1080 BGR."""
+    """frame: 원본 프레임(BGR), t: 출력 시각 → 캔버스(W x H) BGR."""
     global CANVAS
     if CANVAS is None:
         CANVAS = Canvas()
@@ -577,6 +597,7 @@ def render_frame(frame, t):
     out = cv.composite(img)
     out = promo.bars(out, t)  # 파티클이 레터박스 위로 넘어가지 않게 합성 뒤에 덮는다 (TYPE 은 안전 영역 안에 둔다)
     out = promo.ink(out, t)
+    out = promo.overlay_top(out, t)
     fo = TL.fade_out
     fade = clamp01((t - (TL.duration - fo)) / fo) if fo else 0
     if fade > 0:

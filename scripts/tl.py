@@ -1,6 +1,6 @@
 """타임라인 로더: 사용자 timeline.py 를 읽어 프로필 기본값을 채우고, 원본 좌표·시각을 캔버스 좌표·출력 시각으로 변환한다.
 
-- 좌표: 원본 영상 픽셀. 원본 해상도·비율이 달라도 1920x1080 디자인 캔버스에 레터박스로 맞춘다.
+- 좌표: 원본 영상 픽셀. 원본 해상도·비율이 달라도 디자인 캔버스(기본 1920x1080, CANVAS 로 세로 1080x1920 등)에 레터박스로 맞춘다.
 - 시각: 원본 영상 시각. TRIM·SPEED·FREEZE 를 반영해 출력 시각으로 바꾼다 (remap.py).
 - 대상: (x, y) 고정 좌표 또는 "@트랙이름[:top|bottom|left|right]" (tracks.py).
 """
@@ -10,10 +10,11 @@ import types
 
 import cv2
 
+import gfx
 from remap import Remap
 from tracks import build_tracks
 
-W, H = 1920, 1080
+W, H = gfx.W, gfx.H
 
 # 영상 유형별 기본값 — timeline.py 의 값이 항상 우선한다
 PROFILES = {
@@ -107,6 +108,12 @@ def load(path):
     t.base = base
     t.src = os.path.join(base, m.SRC)
     t.info = probe(t.src)
+    canvas = tuple(g("CANVAS", (1920, 1080)))
+    if canvas != (W, H):
+        raise RuntimeError(f"CANVAS={canvas} 인데 엔진 캔버스는 {(W, H)} 입니다. build.py 로 실행하거나 "
+                           f"환경변수 VGUIDE_CANVAS={canvas[0]}x{canvas[1]} 을 먼저 설정하세요.")
+    t.canvas = canvas
+    t.backdrop = g("BACKDROP", "black")  # 레터박스 여백: "black" | "blur"(흐린 확대 배경) | (r, g, b) | dict(kind="blur", tint=(r,g,b), amount=0.45)
     t.profile = g("PROFILE", "screen")
     if t.profile not in PROFILES:
         raise ValueError(f"PROFILE 은 {list(PROFILES)} 중 하나: {t.profile!r}")
@@ -129,7 +136,9 @@ def load(path):
     t.fps_src = t.info["fps"]
     t.fps = float(g("FPS", prof["fps"]) or t.fps_src)
     t.output_size = tuple(g("OUTPUT_SIZE", (W, H)))
-    t.quality = int(g("QUALITY", 18 if t.output_size[1] >= 1080 else 21))
+    if (t.output_size[0] > t.output_size[1]) != (W > H):
+        raise ValueError(f"OUTPUT_SIZE {t.output_size} 와 CANVAS {(W, H)} 의 방향(가로/세로)이 다릅니다")
+    t.quality = int(g("QUALITY", 18 if min(t.output_size) >= 1080 else 21))
     t.output = os.path.join(base, g("OUTPUT", "output/guide.mp4"))
     t.build_dir = os.path.join(base, g("BUILD_DIR", "build"))
     t.theme = g("THEME")
@@ -138,7 +147,7 @@ def load(path):
     # ---- 시간: 원본 → 출력
     trim = g("TRIM") or (0.0, float(g("DURATION", t.info["duration"])))
     trim = (max(0.0, float(trim[0])), min(float(trim[1]), t.info["duration"]))
-    t.remap = Remap(trim[0], trim[1], g("SPEED", []) or [], g("FREEZE", []) or [])
+    t.remap = Remap(trim[0], trim[1], g("SPEED", []) or [], g("FREEZE", []) or [], ramp=g("SPEED_RAMP"))
     t.duration = t.remap.duration
 
     # 시각은 원본 초 또는 (원본 초, 출력 오프셋초) — 예: (49.45, 1.5) = 49.45초 정지가 시작되고 1.5초 뒤

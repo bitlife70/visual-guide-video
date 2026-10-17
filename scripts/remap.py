@@ -3,6 +3,7 @@
 timeline.py 의 모든 시각은 '원본 영상 시각'으로 적는다. 엔진이 TRIM·SPEED·FREEZE 를 반영해 출력 시각으로 바꾼다.
   TRIM   = (시작, 끝)                       원본에서 쓸 구간
   SPEED  = [(t0, t1, 배율[, 라벨])]         0.3 = 슬로모션, 2.0 = 빨리감기 (가장자리는 부드럽게 램프)
+  SPEED_RAMP = 초 (선택)                   구간끼리 붙여 쓸 때: 1배로 돌아가지 않고 이웃 배율로 바로 넘어간다 (0 = 즉시)
   FREEZE = [(t, 정지 길이[, 라벨])]         t 에서 화면을 멈추고 정지 길이(초)만큼 출력에 끼워 넣음
 
 구간 (t0, t1) 을 출력으로 바꿀 때 시작은 왼쪽 극한, 끝은 오른쪽 극한을 쓴다.
@@ -12,11 +13,17 @@ import numpy as np
 
 
 class Remap:
-    def __init__(self, t_start, t_end, speed=(), freeze=(), step=1 / 1000):
+    def __init__(self, t_start, t_end, speed=(), freeze=(), step=1 / 1000, ramp=None):
         self.t_start, self.t_end = float(t_start), float(t_end)
         ts = np.arange(self.t_start, self.t_end + step / 2, step)
         rate = np.ones_like(ts)
-        for sp in speed:
+        if ramp is not None:  # 이어 붙인 구간: 배율 계단을 ramp 초 이동평균으로만 부드럽게
+            for sp in speed:
+                rate[(ts >= float(sp[0])) & (ts < float(sp[1]))] = float(sp[2])
+            n = int(round(float(ramp) / step))
+            if n > 1:
+                rate = np.convolve(np.pad(rate, (n // 2, n - 1 - n // 2), mode="edge"), np.ones(n) / n, "valid")
+        for sp in (speed if ramp is None else ()):
             a, b, r = float(sp[0]), float(sp[1]), float(sp[2])
             ramp = min(0.25, (b - a) / 4)
             m = (ts >= a) & (ts <= b)

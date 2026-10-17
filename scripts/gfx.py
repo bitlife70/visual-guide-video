@@ -1,6 +1,6 @@
 """그래픽 엔진: 이징, 이모지 포함 리치 텍스트 스프라이트(PIL), 안티앨리어싱 도형(OpenCV), premultiplied 합성.
 
-모든 좌표는 1920x1080 캔버스 픽셀 기준.
+모든 좌표는 디자인 캔버스 픽셀 기준 (기본 1920x1080, 세로 쇼츠는 timeline.py 의 CANVAS = (1080, 1920)).
 """
 import math
 import os
@@ -11,7 +11,14 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-W, H = 1920, 1080
+def canvas_from_env():
+    """디자인 캔버스 크기. build.py 가 timeline.py 의 CANVAS 를 읽어 VGUIDE_CANVAS='1080x1920' 으로 넘긴다."""
+    v = os.environ.get("VGUIDE_CANVAS", "")
+    m = re.fullmatch(r"\s*(\d+)\s*[xX,]\s*(\d+)\s*", v)
+    return (int(m.group(1)), int(m.group(2))) if m else (1920, 1080)
+
+
+W, H = canvas_from_env()
 
 
 # ---------------------------------------------------------------- fonts (크로스 플랫폼)

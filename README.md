@@ -17,7 +17,7 @@
 - 🔊 **원본 소리 유지**(슬로모션·정지 구간 자동 처리) + 효과음 라이브러리(타격·폭발·쇳소리·슬픈 트롬본·심장 박동 등)
 - 🎙️ 선택 옵션: **성우 내레이션**(Edge 신경망 TTS / Windows 오프라인 TTS), 슬롯에 맞춘 속도 조절, 자동 덕킹
 - 🧩 **커스텀 훅**: 새 효과를 엔진 수정 없이 `timeline.py` 안의 함수로 추가합니다
-- 📐 출력 해상도·fps·화질 지정(예: 720p 30fps), 병렬 렌더링, `.srt` 자막 동시 출력
+- 📐 출력 해상도·fps·화질 지정(예: 720p 30fps), **세로 쇼츠(1080×1920)** 캔버스 + 흐린 배경 띠 레이아웃, 병렬 렌더링, `.srt` 자막 동시 출력
 
 외부 편집 툴·음원·템플릿 없이 Python(OpenCV · Pillow · NumPy · SciPy)과 번들 ffmpeg만 씁니다.
 
@@ -59,6 +59,7 @@ python $S/build.py timeline.py [--voice edge]                             # 5) �
 전체 스키마는 [`templates/timeline_template.py`](templates/timeline_template.py)에 있습니다. 보통은 유형별 레시피에서 시작합니다.
 - [`recipes/screen_walkthrough.py`](recipes/screen_walkthrough.py): 화면녹화 튜토리얼. 클릭 목록만 채우면 줌인 → 리플·풍선 → 줌아웃 → 바뀐 곳 화살표 → 요약 카드가 자동으로 이어집니다.
 - [`recipes/game_boss_fight.py`](recipes/game_boss_fight.py): 게임 보스전. HP 게이지 분석으로 얻은 피격 시각과 남은 HP를 넣으면 타격감·리액션 팝업·HP 표시·위기 색감·슬로모션·K.O. 연출이 자동으로 들어갑니다.
+- [`recipes/promo_shorts.py`](recipes/promo_shorts.py): 30초 세로 쇼츠. 원본 구간과 출력 길이만 적으면 배속이 역산돼 모든 전환이 박자(마디)에 떨어지고, 먹물 위로 계절 단어가 '쾅' 찍힙니다.
 - [`recipes/promo_film.py`](recipes/promo_film.py): 광고·홍보 필름. 장면 목록(구간·배속·챕터 문구·낙관·파티클·에너지)과 전환 시각을 넣으면 오프닝 카피 → 히어로 타이틀 → 챕터 → 먹물 전환 → 엔드 카드와 음악 곡선이 맞춰집니다.
 - [`recipes/event_vlog.py`](recipes/event_vlog.py): 생일·파티 브이로그. 클라이맥스(촛불 끄기)를 넣으면 슬로모션·꽃가루·음악 시작이 맞춰지고, 사진 카운트다운은 정지 + 폴라로이드로, 끝은 사진 콜라주 아웃트로로 처리됩니다.
 

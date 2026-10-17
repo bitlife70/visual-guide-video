@@ -6,11 +6,13 @@ CLEANUP    원본에 박힌 글씨·도장·로고 지우기 (다른 언어판·
            - plate: 같은 장면에서 글씨가 없는 프레임의 원본 시각(1개 이상). 둘 이상이면 시간에 따라 섞어 배경 변화를 따라간다.
            - plate 가 없으면 cv2.inpaint 로 메운다 → 단색 띠·하늘처럼 단순한 배경에만 쓴다.
            - ref: 글씨가 또렷한 시각(마스크를 만든다, 기본 구간 가운데). live=True 면 매 프레임 마스크를 다시 만든다(움직이는 글씨).
-TYPE       광고 타이포. 시각은 원본 시각(또는 (시각, 오프셋)), 좌표는 1920x1080 캔버스.
+TYPE       광고 타이포. 시각은 원본 시각(또는 (시각, 오프셋)), 좌표는 디자인 캔버스(기본 1920x1080, 세로 쇼츠 1080x1920).
            (t0, t1, "hero",    dict(text="KOREA", sub="...", kicker="...", pos=(960, 420), size=190))
            (t0, t1, "chapter", dict(kicker="SPRING", title="Sunrise over the East Sea", seal="春", pos=(1840, 170), align="right"))
            (t0, t1, "line",    dict(text="There is a land", pos=(960, 540), size=64, italic=True))
-           공통 옵션: color(RGB), halo=(RGB, 반경, 불투명도) 또는 None, sfx=[(이름, 오프셋초, gain)]
+           (t0, t1, "slam",    dict(text="SPRING", pos=(540, 900), size=180, seal="春"))   — 쇼츠: 박자에 맞춰 쾅
+           공통 옵션: color(RGB), halo=(RGB, 반경, 불투명도) 또는 None, sfx=[(이름, 오프셋초, gain)], chapter 는 pace(등장 속도)
+           빨리감기 구간에서는 원본 초가 짧아지므로 (원본 시각, 출력 오프셋초) 로 '출력 기준' 시각을 쓰면 편하다.
 GLOWS      빛 번짐 + 렌즈 플레어: (t0, t1, 대상, dict(radius=240, color=(255, 170, 90), strength=0.5, flare=True, pulse=0.08))
 INK        먹물 번짐 전환: (t, dict(dur=1.4, at=(x, y) 원본 좌표 | "center", color=(16, 16, 20))) — t 에 화면이 가장 많이 덮인다.
 LETTERBOX  시네마 레터박스: dict(ratio=2.39, range=(t0, t1))
@@ -211,6 +213,7 @@ def _chapter(cv, t, a0, a1, opt):
     if not w:
         return
     al = w[0]
+    p = opt.get("pace", 1.0)  # 등장 애니메이션 속도 배율 (쇼츠 0.5~0.6)
     lift = -14 * (1 - al)
     col = tuple(opt.get("color", INK))
     halo = _halo(opt)
@@ -232,18 +235,18 @@ def _chapter(cv, t, a0, a1, opt):
                   x0 + block_w / 2, y + bh / 2 + lift, va * al)
     # 낙관: 크게 떨어져 내려 '쾅' 찍힘
     if has_seal:
-        u = clamp01((t - a0 - 0.1) / 0.2)
+        u = clamp01((t - a0 - 0.1 * p) / (0.2 * p))
         if u > 0:
             sc = 1 + 0.9 * (1 - u) ** 2
             cv.sprite(seal_sprite(opt["seal"], ssz), x0 + ssz / 2, y + ssz / 2 + lift, min(1, u * 1.6) * al, sc)
     if kick:
-        k = clamp01((t - a0 - 0.3) / 0.7)
+        k = clamp01((t - a0 - 0.3 * p) / (0.7 * p))
         cv.sprite(kick, tx, y + 8 + lift, ease_out(k) * al, anchor=(0, 0))
         kw = kick.body[0]
-        r = ease_io(clamp01((t - a0 - 0.45) / 0.8))
+        r = ease_io(clamp01((t - a0 - 0.45 * p) / (0.8 * p)))
         yy = y + 8 + ksz * 0.75
         fx_line(cv, (tx + kw + 18, yy + lift), (tx + kw + 18 + max(0, tw - kw - 18) * r, yy + lift), col, 2, 0.7 * al)
-    k = clamp01((t - a0 - 0.55) / 0.8)
+    k = clamp01((t - a0 - 0.55 * p) / (0.8 * p))
     cv.sprite(title, tx, y + ksz + 22 + 18 * (1 - ease_out(k)) + lift, ease_out(k) * al, anchor=(0, 0))
 
 
@@ -271,12 +274,53 @@ def _line(cv, t, a0, a1, opt):
         cx += s.body[0] + space
 
 
-TYPE_FN = {"hero": _hero, "chapter": _chapter, "line": _line}
+def _slam(cv, t, a0, a1, opt):
+    """쇼츠용: 큰 단어가 박자에 맞춰 '쾅' 커졌다 자리 잡고 천천히 밀려 들어간다."""
+    w = window(t, a0, a1, 0.01, opt.get("fade", 0.3))
+    if not w:
+        return
+    u = clamp01((t - a0) / opt.get("in", 0.16))
+    push = 0.05 * clamp01((t - a0) / max(0.01, a1 - a0))
+    sc = 1 + opt.get("punch", 0.4) * (1 - ease_out(u)) + push
+    sp = text_sprite(opt["text"], opt.get("font", "light"), opt.get("size", 180), tuple(opt.get("color", INK)),
+                     opt.get("tracking", 0.18), _halo(opt, (PAPER, 22, 0.6)))
+    x, y = opt.get("pos", (W / 2, H / 2))
+    cv.sprite(sp, x, y, ease_out(u) * w[0], sc)
+    if opt.get("seal"):
+        ssz = opt.get("seal_size", 96)
+        k = clamp01((t - a0 - opt.get("seal_t", 0.22)) / 0.16)
+        if k > 0:
+            cv.sprite(seal_sprite(opt["seal"], ssz), x, y + sp.body[1] * 0.5 * sc + ssz * 0.75, min(1, k * 1.6) * w[0],
+                      1 + 0.9 * (1 - k) ** 2)
 
 
-def layer_type(cv, t):
+TYPE_FN = {"hero": _hero, "chapter": _chapter, "line": _line, "slam": _slam}
+
+
+def _on_top(style, opt):
+    return opt.get("over_ink", style == "slam")
+
+
+def layer_type(cv, t, top=False):
+    """top=False: 일반 타이포 (먹물·레터박스 아래). top=True: 먹물 위에 그릴 항목 (slam 기본)."""
     for a0, a1, style, opt in TL.type_items:
-        TYPE_FN[style](cv, t, a0, a1, opt)
+        if _on_top(style, opt) == top:
+            TYPE_FN[style](cv, t, a0, a1, opt)
+
+
+_TOP = None
+
+
+def overlay_top(out, t):
+    """먹물 전환 위에 그리는 타이포(slam 등)를 따로 합성."""
+    global _TOP
+    if not any(_on_top(s, o) and a0 - 0.05 <= t <= a1 + 0.5 for a0, a1, s, o in TL.type_items):
+        return out
+    if _TOP is None:
+        _TOP = gfx.Canvas()
+    _TOP.clear()
+    layer_type(_TOP, t, top=True)
+    return _TOP.composite(out)
 
 
 # ================================================================ CLEANUP (원본 프레임 단계)
@@ -472,7 +516,7 @@ def glows(img, view, t, ts):
         al = w[0]
         cx, cy = view.s(tgt.pt(ts))
         z = getattr(view, "z", 1.0)
-        r = opt.get("radius", 240) * z
+        r = opt.get("radius", 240) * TL.scale * z  # 반경은 원본 픽셀 기준
         col = np.array(opt.get("color", (255, 170, 90)), np.float32) / 255
         s = opt.get("strength", 0.5) * al * (1 + opt.get("pulse", 0.08) * math.sin(t * 2.1))
         R = int(r * 2.6)
@@ -579,15 +623,16 @@ def setup(tl):
     tl._cleans = [_Clean(c, tl.src, os.path.join(tl.build_dir, "cleanup_cache")) for c in tl.cleanups]
 
 
-DEFAULT_SFX = {"chapter": [("stamp", 0.28, 0.8)], "hero": [], "line": []}
+DEFAULT_SFX = {"chapter": [("stamp", 0.28, 0.8)], "hero": [], "line": [], "slam": [("stamp", 0.02, 0.7)]}
 
 
 def add_sfx(tl, buf, add, make):
     """make(name) → 효과음 배열 (music.make_sfx, 'waves:6' 처럼 길이 인자 지원)."""
     for a0, a1, style, opt in tl.type_items:
         default = DEFAULT_SFX[style] + ([("stamp", opt.get("seal_t", 1.1) + 0.18, 0.8)] if style == "hero" and opt.get("seal") else [])
+        pace = opt.get("pace", 1.0) if style == "chapter" else 1.0
         for name, off, gain in opt.get("sfx", default):
-            add(buf, make(name), a0 + off, 0.6 * gain)
+            add(buf, make(name), a0 + off * pace, 0.6 * gain)
     for tm, opt in tl.inks:
         if opt.get("sfx", True):
             add(buf, make("ink"), tm - opt.get("dur", 1.4) / 2, 0.5)

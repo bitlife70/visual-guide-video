@@ -20,6 +20,20 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def _canvas_env():
+    """엔진을 import 하기 전에 timeline.py 의 CANVAS (예: (1080, 1920) 세로 쇼츠) 를 환경변수로 넘긴다 (병렬 프로세스도 상속)."""
+    import re
+    for a in sys.argv[1:]:
+        if a.endswith(".py") and os.path.exists(a):
+            m = re.search(r"^CANVAS\s*=\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)", open(a, encoding="utf-8").read(), re.M)
+            if m:
+                os.environ["VGUIDE_CANVAS"] = f"{m.group(1)}x{m.group(2)}"
+            break
+
+
+_canvas_env()
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import music  # noqa: E402

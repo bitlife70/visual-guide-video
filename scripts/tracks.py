@@ -225,6 +225,7 @@ def main():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    import build  # noqa: F401  — import 시 timeline.py 의 CANVAS 를 환경변수로 넘긴다 (세로 쇼츠)
     import tl as tlmod
     from sheet import make_sheets
 

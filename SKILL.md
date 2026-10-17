@@ -72,6 +72,7 @@ python "$SKILL_DIR/scripts/crops.py" VIDEO --t 12 --full --out build/grid.jpg   
 | `recipes/screen_walkthrough.py` | 화면녹화 튜토리얼·데모 | 클릭(시각·좌표·문구·바뀐 곳·카드), 강조할 영역, 자막 |
 | `recipes/game_boss_fight.py` | 게임 전투 하이라이트 | HP 게이지 위치, 피격(시각·남은 HP), 내 공격, 보스 다운, 회복, 사망/처치, 이동 구간, 해설 자막 |
 | `recipes/event_vlog.py` | 생일·기념일·파티 브이로그 | 클라이맥스 시각과 대상, 흔들리는 구간, 사진 카운트다운·정지 프레임, 손님 등장, 마지막 장면 |
+| `recipes/promo_shorts.py` | 30초 세로 쇼츠 (광고 몽타주) | 구간 목록(원본 구간·출력 길이), 장면별 패닝, 계절 단어·챕터 문구, 전환 종류 |
 | `recipes/promo_film.py` | 광고·홍보·여행 필름 | 오프닝 카피, 히어로·엔드 카드, 장면(구간·배속·챕터 문구·낙관·카메라·파티클·에너지·배경 소리), 먹물 전환 시각, 빛나는 대상, 지울 글씨 |
 
 레시피의 기본값은 실제 영상으로 검증한 값이라 그대로 두면 예시처럼 동작한다(다른 영상에서는 반드시 다시 측정). 레시피에 없는 항목은 `templates/timeline_template.py` 의 전체 스키마를 참고해 추가한다. 맞는 레시피가 없으면 템플릿에서 시작한다.
@@ -101,6 +102,8 @@ python "$SKILL_DIR/scripts/crops.py" VIDEO --t 12 --full --out build/grid.jpg   
 | `MASTER_GAIN_DB` | 최종 믹스 게인(리미터 전). 휴대폰 영상은 원본이 작아서 +3~5 dB |
 | `CUSTOM_LAYERS`, `CUSTOM_FRAME_FX`, `CUSTOM_SFX` | **지시받은 새 효과**를 timeline.py 안 함수로 추가 (아래) |
 | `OUTPUT_SIZE`, `FPS`, `QUALITY` | 출력 해상도(예: 720p `(1280, 720)`), fps, CRF |
+| `CANVAS`, `BACKDROP` | 디자인 캔버스. 세로 쇼츠는 `CANVAS = (1080, 1920)` + `OUTPUT_SIZE = (1080, 1920)`. 가로 원본은 가운데 띠로 들어가고 여백은 `BACKDROP`(`"black"`, `"blur"`, `dict(kind="blur", tint=(r,g,b), amount=0.5)`). 화면을 꽉 채우려면 SHOTS 배율 ≈ 3.16 (= 1920 / 607.5) 로 줌하고 x 로 패닝 |
+| `SPEED_RAMP` | 배속 구간을 빈틈없이 이어 붙일 때(쇼츠 몽타주): 구간 사이에서 1배로 돌아가지 않고 이 초만큼만 부드럽게 넘어간다 |
 
 ### 광고·홍보 요소 (`scripts/promo.py`, 모든 프로필에서 사용 가능)
 | 항목 | 용도 |
@@ -109,6 +112,7 @@ python "$SKILL_DIR/scripts/crops.py" VIDEO --t 12 --full --out build/grid.jpg   
 | `TYPE` | 광고 타이포. `"line"`(단어별로 떠오르는 카피), `"hero"`(자간이 모이며 등장하는 대형 타이틀 + 부제 + 낙관), `"chapter"`(낙관이 찍히고 키커·괘선·제목이 이어 등장, `veil` 로 뒤에 안개 베일). 좌표는 1920x1080 캔버스, 색 `color`·가독성 `halo` |
 | `GLOWS` | 해·달·조명 빛 번짐 + 렌즈 플레어(스트릭·고스트) — 트랙을 따라간다 |
 | `INK` | 먹물 번짐 전환 `(t, dict(dur, at))`: t 에 화면을 가장 많이 덮었다가 가운데부터 걷힌다(효과음 자동) |
+| `TYPE` `"slam"` | 쇼츠용: 큰 단어가 박자에 '쾅' — 먹물 위에 그려져 화면이 덮인 순간에도 보인다(`over_ink`). 낙관 `seal` |
 | `LETTERBOX` | 시네마 레터박스 `dict(ratio=2.39, range=(t0, t1))` — 들어오고 나갈 때 부드럽게. 파티클도 띠 밑으로 가려진다 |
 
 ### 새 효과를 지시받으면 — 커스텀 훅
@@ -163,6 +167,10 @@ CUSTOM_SFX = [boss_roar]
 - 타이포는 레터박스 안쪽(위 140px·아래 140px 제외)에. 원본 글씨가 있던 자리가 대개 '비워 둔 하늘'이라 챕터를 놓기 좋다.
 - 음악: zen 은 `arc` 로 장면별 에너지를 정한다. **먹물 전환 시각이 마디 경계(80 BPM = 3초)에 떨어지게** 장면 배속을 조정하면 전환·북·낙관이 박자에 맞는다(`tl.load` 로 out 시각 출력 → 배속 수정). 단계별 음량은 calm −20 / peak −12 dB 정도로 차이가 커야 절정이 산다.
 - 결정적 장면(전개되는 병풍·일출)은 0.75~1배, 느린 풍경은 1.5~2.4배. 큰 장(계절·지역) 전환에만 먹물을 쓰고 같은 장 안에서는 원본 전환을 살린다.
+- **세로 쇼츠(30초)** (`recipes/promo_shorts.py`): 96 BPM(한 마디 2.5초)에 장면 하나씩. `SEGMENTS = [(원본 시작, 끝, 출력 길이)]` 로 이어 붙이고 `Remap` 으로 배속을 역산하면 전환이 정확히 마디에 떨어진다. 원본 전환(크로스페이드)은 0.2초로 압축해 먹물·플래시 밑에 숨긴다.
+  - 첫 1초가 훅: 카피 한 줄 → 마디 1에 브랜드 타이틀 + 음악 타격. 오프닝·피날레는 띠 레이아웃(가운데 원본 + 위아래 타이포), 본편은 꽉 찬 세로 크롭 + 피사체 쪽 패닝(해·폭포·달은 가운데, 넓은 풍경은 좌→우).
+  - 빨리감기 구간에선 원본 초가 짧아지므로 타이포 시각은 `(TRIM[0], 출력초)` 처럼 **출력 기준**으로 쓴다. 챕터는 `pace=0.55` 로 빨리 등장.
+  - 파티클은 `clip=True` 로 컷과 함께 끊는다(꽃잎이 다음 계절로 넘어가지 않게). 쇼츠 UI 를 피해 타이포는 위 260px·아래 420px 안쪽에.
 
 **vlog (가족·행사 영상)**
 - 휴대폰 영상은 흔들림이 많다. 흔들리는 이동 구간은 3~4배 빨리감기(모션블러가 자동으로 들어가 부드럽다), 원본 소리는 자동으로 줄어든다.
@@ -221,4 +229,4 @@ python "$SKILL_DIR/scripts/build.py" timeline.py [--voice edge] [--workers 8]
 | `scripts/styles.py` | epic / chill / cute / zen BGM |
 | `scripts/voice.py` | TTS(edge/sapi), 슬롯 맞춤 속도, 덕킹 |
 | `templates/timeline_template.py` | 전체 스키마 설명이 달린 템플릿 |
-| `recipes/` | 유형별 레시피: screen_walkthrough, game_boss_fight, event_vlog, promo_film |
+| `recipes/` | 유형별 레시피: screen_walkthrough, game_boss_fight, event_vlog, promo_film, promo_shorts |
