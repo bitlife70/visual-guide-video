@@ -485,6 +485,7 @@ def layer_badges(cv, t):
 # ================================================================ 파티클 (PARTICLES)
 # (t0, t1, 종류, dict(at="@트랙" | (x, y) 원본 좌표 | "screen", burst=개수 | rate=초당 개수, ...))
 # 종류: confetti(꽃가루) hearts(하트) sparkle(반짝이) bokeh(빛망울) notes(음표) stars(별) snow(눈)
+#       petals(벚꽃잎) leaves(단풍잎) fireflies(반딧불) — 자연·여행·광고용. petals/leaves 는 위에서 흩날리며 내려온다
 # 위치는 매 프레임 '발생 지점(트랙) + 이동량' — 프레임마다 독립 계산이라 병렬 렌더링에서도 결과가 같다.
 PCOLORS = [(255, 94, 120), (255, 196, 61), (90, 200, 250), (130, 230, 140), (190, 120, 255), (255, 150, 60), (255, 255, 255)]
 PKIND = {
@@ -496,7 +497,48 @@ PKIND = {
     "notes": dict(v=(70, 130), g=-30, life=(1.6, 2.6), size=(34, 50), spread=0.7, drag=0.2),
     "stars": dict(v=(200, 500), g=300, life=(0.9, 1.5), size=(24, 40), spread=3.14, drag=1.2),
     "snow": dict(v=(30, 70), g=40, life=(4.0, 6.0), size=(8, 16), spread=0.4, drag=0.0),
+    "petals": dict(v=(50, 120), g=14, life=(5.0, 8.0), size=(16, 28), spread=0.5, drag=0.25),
+    "leaves": dict(v=(60, 130), g=22, life=(4.5, 7.0), size=(26, 44), spread=0.5, drag=0.25),
+    "fireflies": dict(v=(6, 26), g=-5, life=(2.5, 4.5), size=(14, 26), spread=3.14, drag=0.0),
 }
+P_ANGLE = {"petals": 105, "leaves": 100, "snow": 90}  # 기본 발사 방향(도): 아래로 흩날림
+P_TOP = ("confetti", "snow", "petals", "leaves")  # 화면 위쪽 가장자리에서 생기는 종류
+PETAL_COLS = [(255, 196, 210), (248, 170, 192), (255, 220, 228), (240, 150, 178), (252, 186, 200)]
+LEAF_COLS = [(206, 58, 34), (228, 96, 30), (240, 152, 42), (184, 40, 30), (236, 120, 40)]
+
+
+@lru_cache(None)
+def _p_leaf(kind, ci, ai, size):
+    """벚꽃잎(끝이 갈라진 타원) / 단풍잎(다섯 갈래). ai: 회전 단계(16), 뒤집힘 느낌으로 납작해진다."""
+    ss = 3
+    s = size * 2 * ss
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    a = ai / 16 * 2 * math.pi
+    sq = abs(math.cos(a * 1.3)) * 0.75 + 0.25
+    cx = cy = s / 2
+    R = size * ss * 0.5
+    if kind == "petals":
+        col = PETAL_COLS[ci % len(PETAL_COLS)]
+        pts = []
+        for k in range(48):
+            th = k / 48 * 2 * math.pi
+            r = R * (1 - 0.28 * max(0, math.cos(th)) ** 12)  # 끝의 홈
+            pts.append((r * math.cos(th), r * 0.62 * math.sin(th)))
+    else:
+        col = LEAF_COLS[ci % len(LEAF_COLS)]
+        pts = []
+        for k in range(90):
+            th = k / 90 * 2 * math.pi
+            lobe = abs(math.cos(2.5 * (th + math.pi / 2))) ** 0.7
+            r = R * (0.42 + 0.58 * lobe) * (0.75 if math.sin(th) > 0.6 else 1)
+            pts.append((r * math.cos(th), r * math.sin(th)))
+    pts = [(cx + x * math.cos(a) - y * sq * math.sin(a), cy + x * math.sin(a) + y * sq * math.cos(a)) for x, y in pts]
+    d.polygon(pts, fill=(*col, 235))
+    if kind == "leaves":
+        d.line([(cx, cy), (cx + R * 0.9 * math.sin(a), cy + R * 0.9 * math.cos(a) * sq)], fill=(120, 40, 20, 200), width=ss * 2)
+    img = img.resize((size * 2, size * 2), Image.LANCZOS)
+    return Sprite(img, 0)
 
 
 @lru_cache(None)
@@ -516,7 +558,7 @@ def _p_confetti(ci, ai, size):
 
 @lru_cache(None)
 def _p_glow(kind, ci, size):
-    c = PCOLORS[ci] if kind != "sparkle" else (255, 244, 200)
+    c = {"sparkle": (255, 244, 200), "fireflies": (255, 232, 140), "snow": (255, 255, 255)}.get(kind, PCOLORS[ci])
     s = size * 3
     y, x = np.mgrid[0:s, 0:s].astype(np.float32)
     dx, dy = (x - s / 2) / size, (y - s / 2) / size
@@ -525,6 +567,8 @@ def _p_glow(kind, ci, size):
         a = np.clip((0.5 - r) / 0.12, 0, 1) * 0.28 + np.clip((0.5 - r) / 0.03, 0, 1) * np.clip((r - 0.42) / 0.08, 0, 1) * 0.12
     elif kind == "snow":
         a = np.clip((0.5 - r) / 0.25, 0, 1) * 0.9
+    elif kind == "fireflies":
+        a = np.clip(np.exp(-r * r * 60) * 1.2 + np.exp(-r * r * 7) * 0.35, 0, 1)
     else:  # sparkle: 4갈래 별 + 글로우
         star = np.exp(-np.abs(dx) * 14) * np.exp(-np.abs(dy) * 1.6) + np.exp(-np.abs(dy) * 14) * np.exp(-np.abs(dx) * 1.6)
         a = np.clip(star * 1.2 + np.exp(-r * r * 18) * 0.8, 0, 1)
@@ -554,7 +598,7 @@ class _Emitter:
             rate = opt.get("rate", 8)
             n = max(1, int((t1 - t0) * rate))
             spawn = np.sort(t0 + r.random(n) * max(0.01, t1 - t0))
-        ang0 = math.radians(opt.get("angle", -90))  # 기본: 위쪽으로
+        ang0 = math.radians(opt.get("angle", P_ANGLE.get(kind, -90)))  # 기본: 위쪽으로 (흩날리는 종류는 아래로)
         self.spawn = spawn
         self.life = r.uniform(*p["life"], n)
         sp = r.uniform(*p["v"], n)
@@ -563,13 +607,15 @@ class _Emitter:
         self.g, self.drag = p["g"], p["drag"]
         self.size = r.uniform(*p["size"], n).astype(int)
         self.col = r.integers(0, len(PCOLORS) - (0 if kind != "confetti" else 1), n)
+        if opt.get("palette"):  # PCOLORS 번호 목록 (예: [6] = 흰색 물보라)
+            self.col = r.choice(opt["palette"], n)
         self.rot0 = r.integers(0, 16, n)
         self.vrot = r.uniform(4, 14, n) * r.choice([-1, 1], n)
         self.emo = r.integers(0, 5, n)
         self.phase = r.random(n) * 6.28
         area = opt.get("area")  # "screen" 모드: 발생 영역 (x0, y0, x1, y1) 캔버스
         if self.at == "screen":
-            a = area or ((0, H * 0.2, W, H) if kind in ("bokeh",) else (0, -40, W, -10) if kind in ("confetti", "snow") else (0, 0, W, H))
+            a = area or ((0, H * 0.2, W, H) if kind in ("bokeh",) else (0, -40, W, -10) if kind in P_TOP else (0, 0, W, H))
             self.ox = r.uniform(a[0], a[2], n)
             self.oy = r.uniform(a[1], a[3], n)
         else:
@@ -603,11 +649,20 @@ class _Emitter:
                 x += 18 * math.sin(a * 5 + self.phase[i])
                 ai = int(self.rot0[i] + self.vrot[i] * a) % 16
                 cv.sprite(_p_confetti(int(self.col[i]), ai, int(self.size[i])), x, y, al)
-            elif self.kind in ("sparkle", "bokeh", "snow"):
-                tw = 0.5 + 0.5 * math.sin(a * 12 + self.phase[i]) if self.kind == "sparkle" else 1.0
+            elif self.kind in ("petals", "leaves"):
+                x += 46 * math.sin(a * 1.1 + self.phase[i]) + 18 * math.sin(a * 2.7 + self.phase[i] * 2)
+                ai = int(self.rot0[i] + self.vrot[i] * 0.35 * a) % 16
+                cv.sprite(_p_leaf(self.kind, int(self.col[i]), ai, int(self.size[i])), x, y, al)
+            elif self.kind in ("sparkle", "bokeh", "snow", "fireflies"):
+                tw = 0.5 + 0.5 * math.sin(a * (12 if self.kind == "sparkle" else 4) + self.phase[i]) \
+                    if self.kind in ("sparkle", "fireflies") else 1.0
                 sc = (0.4 + 0.6 * math.sin(math.pi * min(1, u))) if self.kind == "sparkle" else 1.0
                 if self.kind == "snow":
                     x += 20 * math.sin(a * 1.5 + self.phase[i])
+                if self.kind == "fireflies":
+                    x += 28 * math.sin(a * 0.9 + self.phase[i])
+                    y += 16 * math.sin(a * 1.4 + self.phase[i] * 2)
+                    al *= min(1.0, (1 - u) * 3)
                 cv.sprite(_p_glow(self.kind, int(self.col[i]), int(self.size[i])), x, y, al * (0.55 + 0.45 * tw), max(0.2, sc))
             else:
                 x += 14 * math.sin(a * 3 + self.phase[i])

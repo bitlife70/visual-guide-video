@@ -7,7 +7,7 @@
 - 텍스트의 [대괄호] 는 강조색, 이모지는 컬러로 렌더링된다.
 """
 
-PROFILE = "screen"                    # screen | game | vlog | anim  (음악 스타일·원본 소리·색보정·fps 기본값)
+PROFILE = "screen"                    # screen | game | vlog | anim | promo  (음악 스타일·원본 소리·색보정·fps 기본값)
 SRC = "recording.mp4"                 # 이 파일 기준 상대경로
 OUTPUT = "output/guide.mp4"
 # OUTPUT_SIZE = (1280, 720)           # 기본 1920x1080. 렌더는 1080 디자인 캔버스 → 출력 크기로 축소
@@ -113,8 +113,9 @@ MAGNIFY = []
 CALLOUTS = []
 # 팝업     (t0, t1, 대상 | "center" | dict(x=, y=) 캔버스, 문구, 스타일 "impact|danger|cool|info|funny|small|party|sweet|count")
 POPS = []
-# 파티클   (t0, t1, "confetti|hearts|sparkle|bokeh|notes|stars|snow", dict(at="@트랙"|(x,y)|"screen", burst=개수 | rate=초당,
-#           angle=-90, jitter=30, size=(min,max), v=(min,max), alpha=1.0, area=(x0,y0,x1,y1) 캔버스, sfx=True))
+# 파티클   (t0, t1, "confetti|hearts|sparkle|bokeh|notes|stars|snow|petals|leaves|fireflies", dict(at="@트랙"|(x,y)|"screen",
+#           burst=개수 | rate=초당, angle=-90, jitter=30, size=(min,max), v=(min,max), alpha=1.0, area=(x0,y0,x1,y1) 캔버스,
+#           palette=[PCOLORS 번호], sfx=True))
 PARTICLES = []
 # 폴라로이드 (t0, t1, 원본 시각, (x0,y0,x1,y1) 원본 영역, 캡션[, dict(pos=(x,y) 캔버스, w=560, angle=-5, enter="drop|pop")])
 PHOTOS = []
@@ -126,7 +127,19 @@ IMPACTS = []
 # 색보정   GRADE = "cinematic"   GRADES = [(t0, t1, "danger")]  — cinematic warm cool vivid mono sepia danger dream night
 # 효과음   SFX = [(t | (t, 출력오프셋), "이름", gain, pan)]  SFX_VOLUME = 1.0
 #          hit boom clang pop ding scratch sad_trombone heartbeat shutter slowmo crash whoosh whoosh_down riser click bling
-#          party_horn twinkle confetti
+#          party_horn twinkle confetti stamp temple_bell ink gliss gliss_down  /  길이 지정: "waves:8" "wind:6" "water:6" "birds:5"
+
+# ---------------------------------------------------------------- 광고·홍보 (promo.py — 모든 프로필에서 사용 가능)
+# 원본 글씨 지우기 (원본 시각·원본 좌표): plate = 같은 장면에서 글씨가 없는 프레임(페이드 중이 아닌 것!) — 장면이 움직이면 자동 이동 보정
+# CLEANUP = [(t0, t1, (x0,y0,x1,y1), dict(plate=(ta, tb), ref=t, mask="text|box", ink="dark|light", live=False, k=31, thr=26, grow=6))]
+# 광고 타이포 (원본 시각, 캔버스 좌표):
+# TYPE = [(t0, t1, "line", dict(text="Four seasons.", pos=(960, 400), size=74, italic=True)),
+#         (t0, t1, "hero", dict(text="BRAND", pos=(960, 420), size=180, sub=["tagline", "SMALL CAPS"], seal="春")),
+#         (t0, t1, "chapter", dict(kicker="SPRING", title="Hills in Blossom", seal="春", pos=(1830, 160), align="right",
+#                                  veil=(0.85, 150), color=(r,g,b), halo=((r,g,b), 반경, 불투명도)))]
+# GLOWS = [(t0, t1, "@sun", dict(radius=230, color=(255, 150, 80), strength=0.55, flare=True))]   빛 번짐 + 렌즈 플레어
+# INK = [(t, dict(dur=1.7, at=(x, y) | "center"))]       먹물 번짐 전환 (t 에 화면이 가장 많이 덮인다)
+# LETTERBOX = dict(ratio=2.39, range=(t0, t1))           시네마 레터박스
 
 # ---------------------------------------------------------------- 커스텀 훅 (지시받은 새 효과는 여기에 함수로)
 # def my_layer(ctx): ...      ctx.t ctx.ts ctx.raw ctx.frame ctx.view ctx.cv ctx.tl ctx.gfx ctx.fx ctx.screen("@x") ctx.window(t0, t1)
@@ -141,7 +154,9 @@ NARRATION = None
 VOICE = dict(enabled=False, provider="edge", voice="ko-KR-SunHiNeural", rate="+0%", gain_db=0.0)
 
 # ---------------------------------------------------------------- 배경음 / 원본 소리
-# style: pop(126) | epic(96) | chill(82) | cute(132) — 생략 시 프로필 기본. bpm=None 이면 스타일 기본 템포
+# style: pop(126) | epic(96) | chill(82) | cute(132) | zen(80, 가야금·대금·장구·북) — 생략 시 프로필 기본.
+# zen 은 arc=[(원본 시각, "calm|flow|pulse|build|peak|hush|finale")] 로 장면별 에너지 (가장 가까운 마디로 맞춰짐).
+# bpm=None 이면 스타일 기본 템포
 # start: 음악 시작 시각(그 전엔 원본 소리만). drop: 하이라이트 섹션 시작 시각(초).
 # end: 음악을 끝낼 시각, end_fx: "fade" | "scratch" | "cut". volume: BGM 레벨, duck: 내레이션 중 감쇠량
 MUSIC = dict(enabled=True, bpm=None, transpose=0, start=None, drop=None, volume=0.82, duck=0.55)

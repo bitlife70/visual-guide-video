@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw
 
 import fx
 import gfx
+import promo
 from gfx import (CHIP_W, Canvas, Sprite, card_sprite, chip_sprite, clamp01, dim_outside, draw_arrow, draw_dot,
                  draw_rich, draw_ring, draw_rrect, ease_back, ease_io, ease_out, font, parse_rich, pill_sprite,
                  rich_width, subtitle_sprite, window, with_shadow)
@@ -200,6 +201,7 @@ def setup(tl):
     TL = tl
     gfx.set_theme(tl.theme)
     fx.setup(tl)
+    promo.setup(tl)
     if tl.hud:
         S.hud = _hud_sprites(tl.hud)
     if tl.title:
@@ -545,8 +547,10 @@ def render_frame(frame, t):
         CANVAS = Canvas()
     ts = TL.remap.src(t)
     view = View(t, ts)
+    frame = promo.cleanup(frame, ts)
     img = view.warp(letterbox(frame))
     img = fx.frame_fx(img, t)
+    img = promo.glows(img, view, t, ts)
     cv = CANVAS
     cv.clear()
     ctx = Ctx(t=t, ts=ts, raw=frame, view=view, cv=cv, tl=TL, frame=img)
@@ -566,10 +570,13 @@ def render_frame(frame, t):
     fx.layer_pops(cv, view, t, ts)
     fx.layer_badges(cv, t)
     img = _custom(TL.custom_layers, ctx, img)
+    promo.layer_type(cv, t)
     layer_subtitle(cv, t)
     layer_progress(cv, t)
     img = layer_outro(cv, t, img)
     out = cv.composite(img)
+    out = promo.bars(out, t)  # 파티클이 레터박스 위로 넘어가지 않게 합성 뒤에 덮는다 (TYPE 은 안전 영역 안에 둔다)
+    out = promo.ink(out, t)
     fo = TL.fade_out
     fade = clamp01((t - (TL.duration - fo)) / fo) if fo else 0
     if fade > 0:

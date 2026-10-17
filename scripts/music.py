@@ -145,6 +145,61 @@ def lead(m, dur):
     return x * env
 
 
+# ---------------------------------------------------------------- 국악기 (zen 스타일·효과음 공용)
+from functools import lru_cache
+
+
+@lru_cache(512)
+def gayageum(m, dur=1.6, bright=0.5, bend=0.0, vib=0.0, seed=0):
+    """가야금: Karplus-Strong 현 + 농현(vib, 반음 단위 깊이) + 추성(bend: 시작 음높이 반음 차이 → 0)."""
+    f = hz(m)
+    L = max(8, int(round(SR / f - 0.5)))
+    n = int(SR * (dur + 0.05)) + L + 2
+    r = np.random.default_rng(seed * 131 + m)
+    y = np.zeros(n + 1)  # y[0] = 0 은 첫 블록의 y[n-L-1] 자리
+    y[1:L + 1] = lp(r.uniform(-1, 1, L), 1200 + 5000 * bright)
+    decay = 0.9965
+    for s in range(L + 1, n + 1, L):
+        e = min(s + L, n + 1)
+        y[s:e] = decay * 0.5 * (y[s - L:e - L] + y[s - L - 1:e - L - 1])
+    y = y[1:]
+    t = tvec(dur)
+    semi = bend * np.exp(-t / 0.07) + vib * np.minimum(1, np.maximum(0, t - 0.22) / 0.3) * np.sin(2 * np.pi * 4.6 * t)
+    ratio = f / (SR / (L + 0.5)) * 2 ** (semi / 12)
+    idx = np.cumsum(ratio)
+    x = np.interp(idx, np.arange(n), y)
+    x = lp(x, 4200) + 0.25 * bp(x, 180, 900)
+    return x * np.minimum(1, (dur - t) / 0.08) * 0.9
+
+
+def daegeum(m, dur, vib=0.35, scoop=0.6):
+    """대금: 아래에서 밀어 올리는 시김새 + 점점 깊어지는 떨림 + 숨소리 + 청공의 떨리는 배음."""
+    t = tvec(dur + 0.1)
+    v = np.minimum(1, np.maximum(0, t - 0.25) / 0.5) * np.sin(2 * np.pi * 5.2 * t)
+    semi = -scoop * np.exp(-t / 0.06) + vib * 0.5 * v
+    f = hz(m) * 2 ** (semi / 12)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    tone = np.sin(ph) + 0.32 * np.sin(2 * ph) + 0.14 * np.sin(3 * ph) + 0.05 * np.sin(4 * ph)
+    buzz = hp(np.tanh(3 * np.sin(ph)), 1800) * 0.07
+    nz = RNG.standard_normal(len(t))
+    breath = bp(nz, hz(m) * 1.2, hz(m) * 4) * (0.12 + 0.35 * np.exp(-t / 0.08)) + hp(nz, 4000) * 0.03
+    env = np.minimum(1, t / 0.07) * np.clip((dur + 0.1 - t) / 0.2, 0, 1)
+    return (tone * 0.75 + buzz + breath) * env * (1 + 0.12 * v * vib)
+
+
+def janggu(kind):
+    """장구: kung(궁편, 낮은 울림) / deok(채편, 높은 딱) / ghost(약한 채편)."""
+    if kind == "kung":
+        t = tvec(0.7)
+        f = 62 + 70 * np.exp(-t * 25)
+        body = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 6)
+        return np.tanh((body + lp(RNG.standard_normal(len(t)), 700) * np.exp(-t * 40) * 0.4) * 1.5)
+    t = tvec(0.25)
+    body = np.sin(2 * np.pi * 340 * t) * np.exp(-t * 30) * 0.5 + np.sin(2 * np.pi * 530 * t) * np.exp(-t * 42) * 0.3
+    crack = bp(RNG.standard_normal(len(t)), 1800, 6500) * np.exp(-t * 65)
+    return (body + crack) * (0.4 if kind == "ghost" else 1.0)
+
+
 def noise_riser(dur, f0=300, f1=9000):
     n = int(dur * SR)
     x = RNG.standard_normal(n)
@@ -509,7 +564,83 @@ def sfx_confetti():
     return hp(n, 2500) + boom * 0.8
 
 
+# ---------------------------------------------------------------- 자연·전통 효과음 (광고·여행 영상)
+def sfx_stamp():
+    """도장 찍는 소리: 묵직한 툭 + 종이 질감."""
+    t = tvec(0.6)
+    thud = np.sin(2 * np.pi * np.cumsum(55 + 110 * np.exp(-t * 40)) / SR) * np.exp(-t * 13)
+    paper = bp(RNG.standard_normal(len(t)), 700, 4500) * np.exp(-t * 50) * 0.55
+    return np.tanh((thud + paper) * 1.7)
+
+
+def sfx_temple_bell(dur=7.0):
+    """범종: 비화성 배음 + 맥놀이(두 배음이 살짝 어긋나 울렁임) + 당목 타격."""
+    t = tvec(dur)
+    f0 = 118.0
+    x = np.zeros(len(t))
+    for ratio, amp, dec in ((0.5, 0.55, 0.22), (1.0, 1.0, 0.38), (1.19, 0.4, 0.6), (1.5, 0.3, 0.8), (2.0, 0.45, 0.95),
+                            (2.52, 0.22, 1.5), (3.03, 0.16, 1.9), (4.18, 0.1, 2.8)):
+        for det in (-0.32, 0.32):
+            x += amp * np.sin(2 * np.pi * (f0 * ratio + det) * t + ratio) * np.exp(-t * dec)
+    strike = lp(RNG.standard_normal(len(t)), 900) * np.exp(-t * 18) * 1.2 + np.sin(2 * np.pi * 55 * t) * np.exp(-t * 9)
+    return (x / 4 + strike * 0.5) * np.minimum(1, t / 0.004)
+
+
+def sfx_ink(dur=1.4):
+    """먹물 번짐: 부풀었다 가라앉는 저역 스웰."""
+    t = tvec(dur)
+    env = np.sin(np.pi * t / dur) ** 2
+    n = RNG.standard_normal(len(t))
+    out = np.zeros(len(t))
+    fc = 250 + 1300 * env
+    for k in range(0, len(t), 1024):
+        out[k:k + 1024] = lp(n[k:k + 1024], fc[k])
+    return out * env * 0.6 + np.sin(2 * np.pi * 42 * t) * env * 0.5
+
+
+def sfx_gliss(up=True):
+    """가야금 글리산도(5음계 훑기)."""
+    notes = [62, 65, 67, 69, 72, 74, 77, 79, 81, 84, 86, 89]
+    notes = notes if up else notes[::-1]
+    out = np.zeros(int(SR * 2.6))
+    for k, m in enumerate(notes):
+        x = gayageum(m, 1.6, 0.6, 0.0, 0.0, k)
+        i = int(k * 0.045 * SR)
+        out[i:i + len(x)] += x[: len(out) - i] * (0.55 + 0.04 * k)
+    return out * 0.7
+
+
+def sfx_birds(dur=4.0):
+    """새소리: 짧은 휘파람 지저귐이 드문드문."""
+    out = np.zeros(int(SR * dur))
+    r = np.random.default_rng(int(dur * 10))
+    for _ in range(int(dur * 1.6)):
+        t0 = r.random() * max(0.1, dur - 0.6)
+        f0 = r.uniform(2600, 4200)
+        for j in range(r.integers(2, 5)):
+            t = tvec(r.uniform(0.05, 0.1))
+            f = f0 * (1 + 0.35 * np.sin(np.pi * t / t[-1])) * r.uniform(0.95, 1.08)
+            x = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.sin(np.pi * t / t[-1]) ** 2
+            i = int((t0 + j * 0.11) * SR)
+            out[i:i + len(x)] += x[: max(0, len(out) - i)] * r.uniform(0.3, 0.7)
+    return out * 0.5
+
+
+def _ambience(dur, lo, hi, lfo, depth, seed):
+    n = int(SR * dur)
+    t = np.arange(n) / SR
+    x = bp(np.random.default_rng(seed).standard_normal(n), lo, hi)
+    env = 1 - depth + depth * (0.5 + 0.5 * np.sin(2 * np.pi * lfo * t - np.pi / 2))
+    fade = np.minimum(1, t / 0.8) * np.minimum(1, (dur - t) / 0.8)
+    return x * env * fade
+
+
 SFX_LIB = {
+    "stamp": sfx_stamp, "temple_bell": sfx_temple_bell, "ink": sfx_ink, "gliss": sfx_gliss,
+    "gliss_down": lambda: sfx_gliss(False), "birds": sfx_birds,
+    "waves": lambda dur=8.0: _ambience(dur, 120, 1600, 0.16, 0.7, 5),
+    "wind": lambda dur=8.0: _ambience(dur, 250, 1100, 0.11, 0.6, 6) * 1.3,
+    "water": lambda dur=8.0: _ambience(dur, 300, 7000, 0.4, 0.15, 7) * 0.8,
     "click": sfx_click, "bling": sfx_bling, "hit": sfx_hit, "boom": sfx_boom, "clang": sfx_clang, "pop": sfx_pop,
     "ding": sfx_ding, "scratch": sfx_scratch, "sad_trombone": sfx_sad_trombone, "heartbeat": sfx_heartbeat,
     "shutter": sfx_shutter, "slowmo": sfx_slowmo, "crash": crash,
@@ -521,11 +652,19 @@ IMPACT_SFX = {"hit": (("hit", 0.9),), "heavy": (("boom", 0.8), ("hit", 0.6)), "c
               "damage": (("hit", 0.8),), "block": (("clang", 0.6),), "parry": (("clang", 0.7), ("ding", 0.25))}
 
 
+def make_sfx(name):
+    """'이름' 또는 '이름:길이초' (birds·waves·wind·water·temple_bell·ink 처럼 길이를 받는 효과음)."""
+    base, _, arg = name.partition(":")
+    return SFX_LIB[base](float(arg)) if arg else SFX_LIB[base]()
+
+
 def build_sfx(tl):
     N = int(SR * (tl.duration + 0.5))
     fx = np.zeros((2, N))
     for t0, name, gain, pan in tl.sfx:
-        add(fx, SFX_LIB[name](), t0, 0.6 * gain, pan)
+        add(fx, make_sfx(name), t0, 0.6 * gain, pan)
+    import promo
+    promo.add_sfx(tl, fx, add, make_sfx)
     for ti, kind in tl.impacts:
         for name, g in IMPACT_SFX.get(kind, ()):
             add(fx, SFX_LIB[name](), ti, 0.55 * g)

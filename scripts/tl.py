@@ -25,6 +25,9 @@ PROFILES = {
                  caption=dict(size=38, bottom=44), progress=False, grade="warm", fps=30),
     "anim": dict(music=dict(style="cute", volume=0.55), source_audio=dict(enabled=True, volume=0.8),
                  caption=dict(size=38, bottom=44), progress=False, grade="vivid", fps=None),
+    # 광고·홍보·여행 영상: 원본 소리 대신 음악이 주인공, 자막 대신 광고 타이포(TYPE)
+    "promo": dict(music=dict(style="epic", volume=0.9), source_audio=dict(enabled=False, volume=0.5),
+                  caption=dict(size=40, bottom=60), progress=False, grade=None, fps=30),
 }
 
 
@@ -233,6 +236,8 @@ def load(path):
         return O(x[0]) + x[1] if isinstance(x, (tuple, list)) else O(x)
 
     t.sfx = [(sfx_t(x[0]), x[1], x[2] if len(x) > 2 else 1.0, x[3] if len(x) > 3 else 0.0) for x in g("SFX", [])]
+    import promo  # CLEANUP · TYPE · GLOWS · INK · LETTERBOX
+    promo.load(t, g, T, span, O)
     t.custom_layers = list(g("CUSTOM_LAYERS", []) or [])
     t.custom_frame_fx = list(g("CUSTOM_FRAME_FX", []) or [])
     t.custom_sfx = list(g("CUSTOM_SFX", []) or [])
@@ -248,6 +253,8 @@ def load(path):
     for k in ("drop", "end", "start"):
         if t.music.get(k) is not None:
             t.music[k] = O(t.music[k])
+    if t.music.get("arc"):  # zen 스타일: [(원본 시각, "calm|flow|pulse|build|peak|hush|finale")]
+        t.music["arc"] = [(O(a), lv) for a, lv in t.music["arc"]]
     t.source_audio = _merge(prof["source_audio"], g("SOURCE_AUDIO"))
     t.sfx_volume = float(g("SFX_VOLUME", 1.0))
     t.master_gain_db = float(g("MASTER_GAIN_DB", 0.0))  # 최종 믹스 게인 (리미터 전). 휴대폰 영상은 +3~5 dB

@@ -1,6 +1,6 @@
 ---
 name: visual-guide-video
-description: 영상(mp4)을 분석해 코드로 연출을 입힌 해설·하이라이트 영상을 만든다. 화면녹화(줌인·클릭 리플·풍선 도움말·HUD), 게임 플레이(돋보기 확대·피격 타격감·슬로모션·정지 화면·팝업 텍스트·HP 게이지 분석), 브이로그·애니메이션(대상 추적 말풍선·스티커·색보정·배속)을 영상 유형별 프로필로 처리하고, 신스로 합성한 배경음(pop/epic/chill/cute)·효과음·원본 소리·선택적 성우 내레이션(TTS)을 믹스한다. "화면녹화에 설명 효과 넣어줘", "게임 영상 재밌게 편집", "보스전 하이라이트", "브이로그 자막·효과", "클릭할 때 줌인·풍선도움말", "자막·배경음·성우 입혀줘", "screen recording explainer", "gameplay highlight edit" 등에 사용한다.
+description: 영상(mp4)을 분석해 코드로 연출을 입힌 해설·하이라이트 영상을 만든다. 화면녹화(줌인·클릭 리플·풍선 도움말·HUD), 게임 플레이(돋보기 확대·피격 타격감·슬로모션·정지 화면·팝업 텍스트·HP 게이지 분석), 브이로그·애니메이션(대상 추적 말풍선·스티커·색보정·배속), 광고·홍보·여행 필름(원본 글씨 지우기·다국어 광고 타이포·낙관·먹물 전환·빛 번짐·레터박스)을 영상 유형별 프로필로 처리하고, 신스로 합성한 배경음(pop/epic/chill/cute/zen 국악풍)·효과음·원본 소리·선택적 성우 내레이션(TTS)을 믹스한다. "화면녹화에 설명 효과 넣어줘", "게임 영상 재밌게 편집", "보스전 하이라이트", "브이로그 자막·효과", "클릭할 때 줌인·풍선도움말", "자막·배경음·성우 입혀줘", "광고 영상으로 만들어줘", "홍보 영상 영어판", "원본 글씨 지우고 영어로", "screen recording explainer", "gameplay highlight edit", "promo film" 등에 사용한다.
 ---
 
 # Visual Guide Video
@@ -30,12 +30,14 @@ python "$SKILL_DIR/scripts/analyze.py" VIDEO --out build/analysis
 | `game` | 게임 플레이·보스전·하이라이트 | epic 음악(작게), 원본 소리 켬, cinematic 색보정, 30fps | MAGNIFY, IMPACTS, SPEED/FREEZE, POPS, CALLOUTS(@트랙), 게이지 분석 |
 | `vlog` | 일상·여행·리뷰 | chill 음악, 원본 소리 켬, warm 색보정 | CALLOUTS, STICKERS, SPEED(배속 이동), 자막, GRADES |
 | `anim` | 애니메이션·캐릭터 영상 | cute 음악, vivid 색보정 | POPS(funny), STICKERS, CALLOUTS, FREEZE |
+| `promo` | 광고·홍보·여행·브랜드 필름 | epic 음악(크게), 원본 소리 끔, 30fps | TYPE(광고 타이포·낙관), CLEANUP(원본 글씨 지우기), INK 전환, GLOWS, LETTERBOX, 계절 파티클, zen 음악 arc |
 
 유형마다 **무엇을 설명할지**가 다르다:
 - **screen**: "지금 어디를 누르고 무엇이 바뀌는가" → 클릭 지점 줌, 바뀐 패널 화살표, 상태 카드.
 - **game**: "무슨 일이 벌어졌나(공격·방어·피격·회복·보스 패턴)" + 재미 → 타격감, 리액션 팝업, 멀리 있는 대상 돋보기, 결정적 순간 정지 해설, 지루한 이동 구간 빨리감기.
 - **vlog**: "어디서 무엇을 하는가" + **감정** → 설명보다 분위기. 행사(생일·여행·졸업)의 클라이맥스를 슬로모션·파티클로 키우고, 흔들리는 이동 구간은 빨리감기, 사진 찍는 순간은 정지 + 폴라로이드, 끝은 사진 콜라주 아웃트로.
 - **anim**: 캐릭터 리액션 강조 → 귀여운 팝업, 스티커, 결정적 표정 정지.
+- **promo**: "보는 사람이 가고 싶고, 사고 싶게" → 자막 대신 **짧은 광고 카피**(오프닝 2줄 → 히어로 타이틀 → 장면별 챕터 → 엔드 카드), 큰 장이 바뀔 때 먹물 번짐 같은 시그니처 전환, 음악 에너지 곡선(조용 → 고조 → 절정 → 여운 → 피날레). 원본에 다른 언어 글씨가 박혀 있으면 지우고 목표 언어로 교체(국제판).
 
 **공통 편집 원칙 (사용자가 가장 좋아한 부분)**: 불필요한 구간(이동·로딩·카메라가 흔들리는 구간)은 **빨리감기**, 중요한 순간은 **정지(프리즈)** 해서 설명이나 장식을 넣는다. 분석 단계에서 각 구간을 "핵심 / 연결 / 군더더기"로 분류하고 시작한다.
 
@@ -70,6 +72,7 @@ python "$SKILL_DIR/scripts/crops.py" VIDEO --t 12 --full --out build/grid.jpg   
 | `recipes/screen_walkthrough.py` | 화면녹화 튜토리얼·데모 | 클릭(시각·좌표·문구·바뀐 곳·카드), 강조할 영역, 자막 |
 | `recipes/game_boss_fight.py` | 게임 전투 하이라이트 | HP 게이지 위치, 피격(시각·남은 HP), 내 공격, 보스 다운, 회복, 사망/처치, 이동 구간, 해설 자막 |
 | `recipes/event_vlog.py` | 생일·기념일·파티 브이로그 | 클라이맥스 시각과 대상, 흔들리는 구간, 사진 카운트다운·정지 프레임, 손님 등장, 마지막 장면 |
+| `recipes/promo_film.py` | 광고·홍보·여행 필름 | 오프닝 카피, 히어로·엔드 카드, 장면(구간·배속·챕터 문구·낙관·카메라·파티클·에너지·배경 소리), 먹물 전환 시각, 빛나는 대상, 지울 글씨 |
 
 레시피의 기본값은 실제 영상으로 검증한 값이라 그대로 두면 예시처럼 동작한다(다른 영상에서는 반드시 다시 측정). 레시피에 없는 항목은 `templates/timeline_template.py` 의 전체 스키마를 참고해 추가한다. 맞는 레시피가 없으면 템플릿에서 시작한다.
 작업한 영상의 timeline.py 는 그 영상 폴더에 둔다. **스킬 저장소에는 특정 영상의 타임라인(사람 이름·개인 장면·작업 내용)을 넣지 않는다** — 일반화할 만한 패턴은 레시피와 이 문서로 옮긴다.
@@ -82,7 +85,7 @@ python "$SKILL_DIR/scripts/crops.py" VIDEO --t 12 --full --out build/grid.jpg   
 |---|---|
 | `TRIM`, `SPEED`, `FREEZE` | 구간 자르기, 배속·슬로모션(라벨 배지, 라벨 None 이면 배지 없음), 정지 화면(`look` desat=해설용 / photo=셔터 플래시만). 빨리감기는 자동 모션블러(`SPEED_BLEND`) |
 | `TRACKS` | 움직이는 대상 키프레임. `auto=True`(OpenCV 추적: 사람·동물) / `auto="match"`(템플릿 매칭: 케이크·간판 등 형태 고정 물체, `until` 까지 키 하나로 추적) / `follow="부모"`(부모 트랙에 붙은 대상, 예: 케이크 위 촛불). 다른 항목에서 `"@이름"`, `"@이름:top"` 으로 가리킨다 |
-| `PARTICLES` | 파티클 `confetti/hearts/sparkle/bokeh/notes/stars/snow`. 트랙·좌표에서 `burst`(한 번에 펑) 또는 `rate`(계속), 화면 전체(`at="screen"`) |
+| `PARTICLES` | 파티클 `confetti/hearts/sparkle/bokeh/notes/stars/snow/petals/leaves/fireflies`(`palette=[6]` 처럼 색 지정). 트랙·좌표에서 `burst`(한 번에 펑) 또는 `rate`(계속), 화면 전체(`at="screen"`) |
 | `PHOTOS` | 원본의 한 프레임을 폴라로이드로 띄우기(캡션·각도·떨어지는 등장). 정지 화면·아웃트로 콜라주용 |
 | `SHOTS` | 카메라: 좌표 줌 / `"full"` / `"fill"`(레터박스 없이 꽉 채움) / `"@트랙"` 추적 줌 |
 | `MAGNIFY` | 돋보기 렌즈: 멀리 있는 대상을 원형으로 확대 + 연결선 + 라벨 |
@@ -92,12 +95,21 @@ python "$SKILL_DIR/scripts/crops.py" VIDEO --t 12 --full --out build/grid.jpg   
 | `IMPACTS` | 타격감 `hit/heavy/crit/damage/block/parry`: 흔들림+플래시+줌 펀치+색수차(+효과음 자동) |
 | `SHAKE`, `FLASH` | 수동 흔들림·번쩍임 |
 | `GRADE`, `GRADES` | 색보정 `cinematic/warm/cool/vivid/mono/sepia/danger/dream/night` (구간별 전환) |
-| `SFX`, `SFX_VOLUME` | 효과음 라이브러리: hit boom clang pop ding scratch sad_trombone heartbeat shutter slowmo crash whoosh riser party_horn twinkle confetti |
+| `SFX`, `SFX_VOLUME` | 효과음 라이브러리: hit boom clang pop ding scratch sad_trombone heartbeat shutter slowmo crash whoosh riser party_horn twinkle confetti / stamp temple_bell ink gliss gliss_down / 길이를 받는 배경 소리 `"waves:8"` `"wind:6"` `"water:6"` `"birds:5"` |
 | `SOURCE_AUDIO` | 원본 소리(슬로모션 구간은 피치 하강, 정지 구간은 무음, 빨리감기 구간은 `fast_gain` 만큼 줄임) |
-| `MUSIC` | `style` pop/epic/chill/cute, `start`(이 시각부터 음악), `drop`, `end`(+`end_fx` scratch/fade/cut), `volume` |
+| `MUSIC` | `style` pop/epic/chill/cute/zen, `arc`(zen: 장면별 에너지), `start`(이 시각부터 음악), `drop`, `end`(+`end_fx` scratch/fade/cut), `volume` |
 | `MASTER_GAIN_DB` | 최종 믹스 게인(리미터 전). 휴대폰 영상은 원본이 작아서 +3~5 dB |
 | `CUSTOM_LAYERS`, `CUSTOM_FRAME_FX`, `CUSTOM_SFX` | **지시받은 새 효과**를 timeline.py 안 함수로 추가 (아래) |
 | `OUTPUT_SIZE`, `FPS`, `QUALITY` | 출력 해상도(예: 720p `(1280, 720)`), fps, CRF |
+
+### 광고·홍보 요소 (`scripts/promo.py`, 모든 프로필에서 사용 가능)
+| 항목 | 용도 |
+|---|---|
+| `CLEANUP` | 원본에 박힌 글씨·도장·로고 지우기 `(t0, t1, (x0,y0,x1,y1), dict(plate=(ta, tb), ref=t))`. `plate` = 같은 장면에서 글씨가 **없는** 프레임 → 배경을 그대로 복원(장면이 패닝·줌하면 위상 상관으로 자동 이동 보정). `mask="box"` 는 상자 전체 교체(정지 배경), plate 없으면 인페인트(NS + 종이 결), `live=True` 는 움직이는 글씨(예: 미끄러져 들어오는 라벨, `ink="light"`) |
+| `TYPE` | 광고 타이포. `"line"`(단어별로 떠오르는 카피), `"hero"`(자간이 모이며 등장하는 대형 타이틀 + 부제 + 낙관), `"chapter"`(낙관이 찍히고 키커·괘선·제목이 이어 등장, `veil` 로 뒤에 안개 베일). 좌표는 1920x1080 캔버스, 색 `color`·가독성 `halo` |
+| `GLOWS` | 해·달·조명 빛 번짐 + 렌즈 플레어(스트릭·고스트) — 트랙을 따라간다 |
+| `INK` | 먹물 번짐 전환 `(t, dict(dur, at))`: t 에 화면을 가장 많이 덮었다가 가운데부터 걷힌다(효과음 자동) |
+| `LETTERBOX` | 시네마 레터박스 `dict(ratio=2.39, range=(t0, t1))` — 들어오고 나갈 때 부드럽게. 파티클도 띠 밑으로 가려진다 |
 
 ### 새 효과를 지시받으면 — 커스텀 훅
 엔진을 고치지 말고 timeline.py 에 함수를 쓴다. `ctx` 에는 `t`(출력 시각), `ts`(원본 시각), `raw`(원본 프레임), `frame`(현재 캔버스 BGR), `view`, `cv`(오버레이 캔버스), `tl`, `gfx`, `fx`, `W`, `H`, `screen("@boss")`, `window(t0, t1)`(원본 시각 구간 → (alpha, 진행도))가 있다.
@@ -143,6 +155,15 @@ CUSTOM_SFX = [boss_roar]
 - HP 이벤트로 피격 시점을 잡고 `IMPACTS` 를 프레임 정확도로 맞춘다. 피격 = `damage`/`crit`, 내 공격 적중 = `hit`/`heavy`.
 - 원본 게임 소리를 살리고 BGM 은 작게(volume 0.3~0.45). 사망 시점에 `MUSIC["end"]` + `end_fx="scratch"` 로 음악을 끊고 `sad_trombone` 같은 효과음으로 웃음 포인트를 만든다.
 
+**promo (광고·홍보·국제판)**
+- 원본 글씨 지우기: 글씨가 나타나기 0.4초 이상 전/사라진 뒤의 프레임을 plate 로 고른다. **페이드 중인 프레임엔 희미한 글씨가 남아 있다** → 대비를 키운 크롭(배경 블러를 빼고 ×4)으로 확인. 지운 뒤엔 `--preview` 원본 해상도 크롭으로 잔상·이음새를 본다.
+- 안개·물보라처럼 형태가 계속 바뀌는 배경은 plate 가 맞지 않는다(회색 얼룩) → plate 없이 인페인트하고, 그 자리에 챕터 타이포를 `veil` 과 함께 얹는다.
+- 붉은 도장 감지는 진한 빨강만 잡는다(노을·주홍 하늘은 제외). 하늘이 주홍이면 상자 전체가 바뀌어 색 띠가 생기지 않는지 확인.
+- 카피는 짧게: 오프닝 2~4단어 × 2줄, 챕터 제목 2~5단어, 엔드 카드 브랜드 + 한 줄. 실제 기관·브랜드의 공식 슬로건은 쓰지 않는다.
+- 타이포는 레터박스 안쪽(위 140px·아래 140px 제외)에. 원본 글씨가 있던 자리가 대개 '비워 둔 하늘'이라 챕터를 놓기 좋다.
+- 음악: zen 은 `arc` 로 장면별 에너지를 정한다. **먹물 전환 시각이 마디 경계(80 BPM = 3초)에 떨어지게** 장면 배속을 조정하면 전환·북·낙관이 박자에 맞는다(`tl.load` 로 out 시각 출력 → 배속 수정). 단계별 음량은 calm −20 / peak −12 dB 정도로 차이가 커야 절정이 산다.
+- 결정적 장면(전개되는 병풍·일출)은 0.75~1배, 느린 풍경은 1.5~2.4배. 큰 장(계절·지역) 전환에만 먹물을 쓰고 같은 장 안에서는 원본 전환을 살린다.
+
 **vlog (가족·행사 영상)**
 - 휴대폰 영상은 흔들림이 많다. 흔들리는 이동 구간은 3~4배 빨리감기(모션블러가 자동으로 들어가 부드럽다), 원본 소리는 자동으로 줄어든다.
 - 클라이맥스(촛불 끄기·건배·골인)는 0.4배 슬로모션 + 플래시 + confetti burst + party_horn. **음악은 그 순간 시작**(`MUSIC["start"]`) — 그 전엔 원본 소리(생일 노래·대화)를 살린다.
@@ -162,7 +183,7 @@ python "$SKILL_DIR/scripts/build.py" timeline.py --preview-out 16.6,36.2     # �
 
 ## 5. 오디오
 
-- **배경음** `MUSIC["style"]`: pop(126BPM 일렉트로 팝), epic(96BPM 타이코·스타카토 현·브라스·합창), chill(82BPM 로파이), cute(132BPM 마림바·피치카토). 모두 intro → A → B → build → drop → outro 구조이며 `drop` 초에 하이라이트가 터진다.
+- **배경음** `MUSIC["style"]`: pop(126BPM 일렉트로 팝), epic(96BPM 타이코·스타카토 현·브라스·합창), chill(82BPM 로파이), cute(132BPM 마림바·피치카토), zen(80BPM 가야금·대금·장구·북·합창, `MUSIC["arc"] = [(원본 시각, "calm|flow|pulse|build|peak|hush|finale")]`). zen 외에는 모두 intro → A → B → build → drop → outro 구조이며 `drop` 초에 하이라이트가 터진다.
 - **원본 소리**: game/vlog/anim 기본 켬. 성우가 말하면 함께 덕킹된다(`SOURCE_AUDIO["duck"]`).
 - **레벨 점검**: 게임은 원본 소리가 주인공이다. 구간별 RMS 를 재서 음악이 원본보다 3~5dB 작게, 효과음은 타격 순간에만 들리게 맞춘다.
   ```python
@@ -193,10 +214,11 @@ python "$SKILL_DIR/scripts/build.py" timeline.py [--voice edge] [--workers 8]
 | `scripts/build.py` | 미리보기 / 오디오 믹스(원본 소리 리매핑·리미터) / 병렬 렌더 / SRT |
 | `scripts/tl.py` | timeline.py 로더, 프로필 기본값, 좌표·시각 변환 |
 | `scripts/render.py` | 카메라(추적·흔들림)·화면녹화 레이어·커스텀 훅 |
-| `scripts/fx.py` | 범용 효과: 색보정, 타격감, 돋보기, 말풍선, 팝업, 스티커, 배지 |
+| `scripts/fx.py` | 범용 효과: 색보정, 타격감, 돋보기, 말풍선, 팝업, 스티커, 배지, 파티클 |
+| `scripts/promo.py` | 광고 요소: 원본 글씨 지우기, 광고 타이포·낙관, 빛 번짐·플레어, 먹물 전환, 레터박스 |
 | `scripts/gfx.py` | 이징, 리치 텍스트(컬러 이모지), AA 도형, 합성, 폰트 |
 | `scripts/music.py` | pop BGM, 효과음 라이브러리, 섹션 배치 |
-| `scripts/styles.py` | epic / chill / cute BGM |
+| `scripts/styles.py` | epic / chill / cute / zen BGM |
 | `scripts/voice.py` | TTS(edge/sapi), 슬롯 맞춤 속도, 덕킹 |
 | `templates/timeline_template.py` | 전체 스키마 설명이 달린 템플릿 |
-| `recipes/` | 유형별 레시피: screen_walkthrough, game_boss_fight, event_vlog |
+| `recipes/` | 유형별 레시피: screen_walkthrough, game_boss_fight, event_vlog, promo_film |
